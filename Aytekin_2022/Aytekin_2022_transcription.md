@@ -245,4 +245,4 @@ We believe that this tree equivalence provides directions to tackle the black-bo
 ## LICENCE
 
 Article by Aytekin, Caglar. “Neural Networks Are Decision Trees.” arXiv, October 25, 2022. [https://doi.org/10.48550/arXiv.2210.05189.
-](https://doi.org/10.48550/arXiv.2210.05189) / [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) / Adapted.
+](https://doi.org/10.48550/arXiv.2210.05189) / Cited under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) / Adapted in part by [Yuki Sakishita](https://y-saki26.github.io/pages/).
