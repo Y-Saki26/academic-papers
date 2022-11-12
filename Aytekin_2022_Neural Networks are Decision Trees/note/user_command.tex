@@ -1,0 +1,27 @@
+% addFigure のデフォルト幅
+\newlength{\defaultFigureWidth}
+\setlength{\defaultFigureWidth}{0.5\linewidth}
+% \addFigure[width]{図ファイル名}{キャプション}{ラベル}
+\newcommand{\addFigure}[4][\the\defaultFigureWidth]{
+    \begin{figure}[hb]
+        \centering
+        \includegraphics[width=#1]{#2}
+        \caption{#3}
+        \label{fig:#4}
+    \end{figure}
+}
+
+% 図<label名> を参照
+\newcommand{\figref}[1]{図~\ref{fig:#1}}
+
+% KLダイバージェンス
+% || で区切る
+\DeclareMathOperator{\KL}{KL}
+\DeclarePairedDelimiterX{\divbrace}[2]{[}{]}{%
+    #1\;\delimsize\|\;#2%
+}
+\newcommand{\KLdiv}{
+    \KL\divbrace
+}
+
+\usepackage{fancyvrb}

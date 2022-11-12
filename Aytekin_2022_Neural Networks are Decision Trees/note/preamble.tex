@@ -1,0 +1,43 @@
+\usepackage[dvipdfmx,hidelinks]{hyperref} %赤い bounding box を消すため hidelinks を指定
+\usepackage{pxjahyper}% hyperrefの日本語対応
+\usepackage[dvipdfmx]{graphicx}
+\usepackage{tikz}
+\usepackage{here} % 図表をその場に出力する[H]オプションの追加
+\usepackage{amsmath,amssymb}
+\usepackage{mathtools}
+\usepackage{siunitx}
+\usepackage[version=4]{mhchem}
+\usepackage{physics} % `\qty`の名前衝突のためsiunitxのあとに読み込む
+\usepackage{url}
+\usepackage{comment}
+\usepackage{bm}
+
+\usepackage{cprotect} % box内で\verbなどを使う
+\usepackage{moreverb} % verbatimの拡張
+% 定義リスト
+% http://texuttex.g2.xrea.com/pdf/Entwurf02.pdf p89
+\newdimen\hangindentlength
+\hangindentlength=4zw
+  \newcommand{\deflist}[2]{%
+  \noindent
+  \hangindent=\hangindentlength
+  \textbf{#1}\\
+  #2\par
+}
+
+% align, gather 環境でページをまたがせる
+\allowdisplaybreaks[4]
+
+% 基本的な括弧類の定義
+% https://mathlandscape.com/declarepaireddelimiter/#toc3
+%\DeclarePairedDelimiter{\abs}{\lvert}{\rvert} % | | absolute value
+%\DeclarePairedDelimiter{\norm}{\lVert}{\rVert} % || || norm
+\DeclarePairedDelimiter{\rbra}{\lparen}{\rparen} % () round brackets
+\DeclarePairedDelimiter{\cbra}{\lbrace}{\rbrace} % {} curly brackets
+\DeclarePairedDelimiter{\sbra}{\lbrack}{\rbrack} % [] square brackets
+\DeclarePairedDelimiter{\abra}{\langle}{\rangle} % < > angle brackets
+\DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor} % floor function
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil} % ceil function
+
+
+\input{user_command}

@@ -1,0 +1,458 @@
+\documentclass[dvipdfmx,autodetect-engine,12pt,fleqn]{jsarticle}
+% fleqn: 数式左寄せ
+\input{preamble}
+
+\title{Neural Networks are Decision Trees - note}
+\author{Yuki Sakishita}
+\date{\today}
+
+\hypersetup{% hyperrefオプションリスト
+ colorlinks=true,%
+ urlcolor=blue,
+ citecolor=black,
+ linkcolor=black
+}
+
+\DeclareMathOperator{\NN}{NN}
+\DeclareMathOperator{\CNN}{CNN}
+
+\newcounter{footnote-anchor}
+\setcounter{footnote-anchor}{0}
+\newcommand{\footnoteanchor}[1]{
+    \hypertarget{footnote-anchor\arabic{footnote-anchor}}{}%
+    \footnote{#1 \hyperlink{footnote-anchor\arabic{footnote-anchor}}{$\hookleftarrow$}}%
+    \addtocounter{footnote-anchor}{1}
+}
+
+\begin{document}
+\maketitle
+
+Caglar Aytekin, "Neural Networks Are Decision Trees." (2022)\cite{Aytekin2022}\footnoteanchor{ライセンス表記: \href{https://arxiv.org/abs/2210.05189}{Caglar Aytekin "Neural Networks Are Decision Trees." (2022)} /  \href{https://creativecommons.org/licenses/by-nc-sa/4.0/}{CC BY-NC-SA 4.0}}
+のレビュー
+
+\section*{Abstract}
+
+\begin{itemize}
+    \item 区分線形な活性化関数（ReLUのような折れ線状の関数）のNeural Network（NN）が決定木と等価であることを示した
+    \begin{itemize}
+        \item 解釈可能性の向上
+        \item （活性化関数が区分線形であれば）近似を含まない等価な表現が得られる
+    \end{itemize}
+    \item ResNet, CNN, RNN へ拡張．
+    \item 元のNNと，等価に構成した決定木を比較すると，空間容量が増える代わりに推論の計算量は小さくなる．
+\end{itemize}
+
+\section*{目次}
+
+\begin{itemize}
+    \item Introduction
+    \item Neural Network と等価な Decision Treeの構成
+    \begin{itemize}
+        \item 全結合NNの場合
+        \item skip connectionを持つ（Residual Net）場合
+        \item Normalizetion層の扱い
+        \item CNNの場合
+        \item RNNの場合
+    \end{itemize}
+    \item Toy Modelでの実験
+    \item 講評
+    \item 補足：バイアス項の入れ方
+\end{itemize}
+
+\section{Introduction}
+
+Newral Network（以下NN）はブラックボックス性のため，信頼性の高い用途への妨げとなっており，説明可能性の研究が行われてきた．
+既存手法としてsaliency map・解釈可能な方法による近似・モデルの組み合わせなどが挙げられる．
+
+saliency map（顕著性マップ）はNNが予測によく利用する入力空間の領域を図示したものである（例：\figref{saliency map}）．
+判断を指示する領域が健全であるかを確認するなどの目的には利用できるが，論理的な理由づけはできていない．
+
+\addFigure[0.8\linewidth]{Figure7.png}{いくつかの手法・モデルによるsaliency mapの例．（Mohammad et al.(2021).\cite{Jalwana2021} より）}{saliency map}
+
+NNを解釈可能なモデルで近似する方法はNNの近似であるため，元のモデルよりも性能が落ちる．
+
+NNと決定木を組み合わせたモデルではバックボーンはNNのままなので完全な論理的推論はできず，決定の良し悪しを検証する手段を提供するにとどまる．
+
+本論文ではNNが近似を含まず等価な決定木の表現を持つことを示す．
+特にフィードフォワード・ReLUのNNについては先行研究に類似するところがあるが，一般の活性化関数でスキップ層・CNN・RNNの場合にも拡張できる．
+
+\section{Neural Networkと等価なDecision Treeの構成}
+
+\subsection{全結合NNの場合}
+
+\noindent Notation:
+\newcommand{\layervector}[1]{\bm{x}_{#1}}
+\newcommand{\activation}[1]{\sigma\rbra{#1}}
+\newcommand{\weightmatrix}[1]{W_{#1}}
+\newcommand{\transpose}{\mathsf{T}}
+\newcommand{\weightmatrixT}[1]{W_{#1}^\transpose}
+\begin{description}
+\item[学習済みのNN] $y=\NN(\layervector{0})$: 隠れ層$n-1$，入力$\layervector{0}$ （${m_{\text{in}}}$次元），出力$y$（$m_{\text{out}}$次元）．
+\item[活性化関数$\sigma$] 区分線形関数．
+i.e. 場合分けされた領域ごとに1次方程式で表せるもの．
+e.g. ReLU，leaky-ReLUなど．
+区分けされた領域の数を$k$とする\footnoteanchor{ReLUなら$k=2$}．
+\item[各層の出力] $\layervector{i}$（$m_i$次元）
+\item[重み行列] $W_i$
+\end{description}
+
+\addFigure[0.9\linewidth]{Figure8.png}{全結合NN：モデル構造}{fnn layers}
+\addFigure[0.55\linewidth]{Figure9.png}{全結合NN：層の中身}{fnn calc}
+
+全結合NNの各層の順伝播は
+\[
+\layervector{i}=\activation{ \weightmatrixT{i-1} \layervector{i-1}}
+\]
+のようになり，出力は
+\begin{equation}
+\label{eq:nn output}
+\begin{split}
+&\NN\rbra{\layervector{0}}
+    =\weightmatrixT{n-1}\layervector{n-1}\\
+&=\weightmatrixT{n-1}\activation{\weightmatrixT{n-2}\activation{\cdots \weightmatrixT{1}\activation{\weightmatrixT{0}\layervector{0}} \cdots}}
+\end{split}
+\end{equation}
+と表せる．
+バイアス項は1を最後の次元に追加すれば線形で書けるので省略する．
+
+\newcommand{\activeindex}[1]{\bm{a}_{#1}}
+区分線形である$\sigma$は各領域でスカラー倍とみなせるので，要素積を$\odot$として
+\begin{equation}
+\label{eq:activation index}
+\weightmatrixT{i} \activation{\weightmatrixT{i-1}\layervector{{i-1}}}
+=\weightmatrixT{i}\qty(\activeindex{i-1}\odot\qty(\weightmatrixT{i-1}\layervector{i-1}))
+\end{equation}
+と書ける．
+$\activeindex{i}$の第$j$要素は$\weightmatrixT{i-1}\layervector{i-1}$の第$j$要素が該当する領域での$\sigma$の傾き．
+\footnoteanchor{e.g. ReLUなら$x<0$で0，$x\ge0$で1．}
+
+成分計算を考えると，以下のように書き換えられる．
+\begin{equation}
+\label{eq:activation index 2}
+\text{(rhs)}=\qty(\weightmatrix{i}\odot \activeindex{i-1})^\transpose \qty(\weightmatrixT{i-1}\layervector{i-1})
+\end{equation}
+ここでの$\odot$は列方向ごとの要素積．
+
+これをEq.~\eqref{eq:nn output}に適用すると，
+\begin{equation}
+\label{eq:nn output 2}
+\NN\rbra{\layervector{0}}=\qty(\weightmatrix{n-1}\odot \activeindex{n-2})^\transpose
+\qty(\weightmatrix{n-2}\odot \activeindex{n-3})^\transpose \cdots
+\qty(\weightmatrix{1}\odot \activeindex{0})^\transpose \weightmatrixT{0}\layervector{0}
+\end{equation}
+
+\newcommand{\effweightmatrix}[2]{\prescript{}{#1}{\hat{W}}_{#2}}
+\newcommand{\catindex}[1]{\bm{c}_{#1}}
+ここで有効重み行列$\effweightmatrix{\catindex{i}}{i}$を次のように定義する\footnoteanchor{元論文では大文字と小文字のCが混じっているため見ずらいが，$\catindex{i}$は左下付き添字．}
+\begin{equation}
+\label{eq:eff weight matrix}
+\begin{split}
+&\effweightmatrix{\catindex{i}}{i}^\transpose \layervector{0}
+    = \weightmatrixT{i}\layervector{i}\\
+&\effweightmatrix{\catindex{i}}{i}^\transpose
+    = \qty(\weightmatrix{i}\odot \activeindex{i-1})^\transpose
+    \qty(\weightmatrix{i-1}\odot \activeindex{i-2})^\transpose
+    \cdots \qty(\weightmatrix{1}\odot \activeindex{0})^\transpose \weightmatrixT{0}
+\end{split}
+\end{equation}
+ここで$\catindex{i}$は第$i$層までの分類ベクトルで，$\activeindex{0},\dots,\activeindex{i-1}$を繋げたものである．
+\[
+\catindex{i}=\activeindex{0}\parallel\activeindex{1}\parallel\dots\parallel\activeindex{i-1}
+\]
+（$i=0$では0次元ベクトル．）
+
+Eq.~\eqref{eq:eff weight matrix}でindexをずらしたものを比較すれば
+\[
+\effweightmatrix{\activeindex{0}\parallel\dots\parallel\activeindex{i-2}\parallel\activeindex{i-1}}{i}^\transpose
+= \qty(\weightmatrix{i}\odot\activeindex{i-1})^\transpose \effweightmatrix{\activeindex{0}\parallel\dots\parallel\activeindex{i-2}}{i-1}^\transpose
+\]
+と書けることがわかる．
+すなわち，$\effweightmatrix{\catindex{i-1}}{i-1}$が定まれば，$k^{m_i}$通りの$\activeindex{i-1}$について$\effweightmatrix{\catindex{i-1}\parallel\activeindex{i-1}}{i}$が得られる．
+$\activeindex{i}$の各次元（ノード）ごとに処理すれば，各階層で$k$分岐する決定木が得られ，最終的な値$\effweightmatrix{\catindex{n-1}}{n-1}^\transpose \layervector{0}$\footnoteanchor{$\layervector{0}$の領域内での1次関数である}を出力とするNNの表現が得られた．
+
+また，入力$\layervector{0}$が与えられれば各層の前の出力$\weightmatrixT{i-1}\layervector{i-1}=\effweightmatrix{\catindex{i-1}}{i-1}^\transpose \layervector{0}$が定まるので，$\activeindex{i-1}$がどの値を取るかが定まる．よって各分岐の真偽が定まるので決定木の出力も得られる．
+
+例として\figref{2-2-NN}に示す深さ2，幅2で活性化関数がReLU
+\[
+\activation{x}=\begin{cases}
+0 & (x\le 0)\\
+x & (x>0)
+\end{cases}
+\]
+の全結合NNを考えると，最初の階層では$\activeindex{0}$の第0成分が0か1か，すなわち$\effweightmatrix{()}{0}\layervector{0}$の第1成分が負か正かによって分岐している．
+次の階層では同様に第1成分により分岐している．\footnoteanchor{
+\figref{2-2-DT}では「$\effweightmatrix{\catindex{i}}{i}^\transpose\layervector{i}$の第$j$成分」が$\effweightmatrix{\catindex{i}}{ij}^\transpose\layervector{i}$と表記されているが，先に行列の要素を取っては行列積が計算できないので正しくは$\qty(\effweightmatrix{\catindex{i}}{i}^\transpose\layervector{i})_j$であろう．
+}
+
+\addFigure[0.6\linewidth]{Figure1.png}{2層NN}{2-2-NN}
+
+3階層目では$\catindex{1}=\activeindex{0}=(0,0),(0,1),(1,0),(1,1)$についてそれぞれ$\effweightmatrix{\catindex{1}}{1}\layervector{0}$の正負で分岐し，最終的な出力$\effweightmatrix{\catindex{2}}{2}\layervector{0}$が葉，すなわち決定木の出力になっている．
+
+\addFigure[\linewidth]{Figure2.png}{\figref{2-2-NN}のNNの決定木(論文\cite{Aytekin2022}Figure1より)}{2-2-DT}
+
+この決定木は葉の数が$k^{\sum_i m_i}$と膨大な分岐を持つが，論理的に偽な分岐（$x>0$で真を取ったあとに$x<-1$の分岐がある場合など）を削除すれば関数形を保ったまま枝刈りをすることができるのでいくらかましになる．
+
+\subsection{Skip Connectionを持つ（Residual Net）場合}
+
+\newcommand{\rlayervector}[1]{\prescript{}{\mathrm{r}}{\bm{x}}_{#1}}
+以下のResidual NNを考える．
+\begin{equation}
+\label{eq:ResNet prop}
+\begin{split}
+&\rlayervector{0}=\weightmatrixT{0}\layervector{0}\\
+&\rlayervector{i}=\rlayervector{i-1}+\weightmatrixT{i}\activation{\rlayervector{i-1}}
+\end{split}
+\end{equation}
+
+\addFigure[0.75\linewidth]{Figure10.png}{ResNet：層の中身}{resnet calc}
+
+全結合の場合と同様にすれば
+\begin{equation}
+\rlayervector{i}=\qty(I+\qty(\weightmatrix{i}\odot\activeindex{i-1})^\transpose)\rlayervector{i-1}
+\end{equation}
+
+これを繰り返し適用すると，
+\newcommand{\reffweightmatrix}[2]{\prescript{\mathrm{r}}{#1}{\hat{W}}_{#2}}
+\begin{equation}
+\label{eq:res eff weight matrix}
+\begin{split}
+&\rlayervector{i}=\reffweightmatrix{\catindex{i}}{i}^\transpose\layervector{0}\\
+&\reffweightmatrix{\catindex{i}}{i}^\transpose=\qty(I+\qty(\weightmatrix{i}\odot\activeindex{i-1})^\transpose)\qty(I+\qty(\weightmatrix{i-1}\odot\activeindex{i-2})^\transpose)\cdots \qty(I+\qty(\weightmatrix{1}\odot\activeindex{0})^\transpose)\weightmatrix{0}^\transpose
+\end{split}
+\end{equation}
+のようにEq.~\eqref{eq:eff weight matrix}と同様の形が得られ，決定木に変換できることがわかる．
+
+\subsection{CNNの場合}
+
+\newcommand{\kerneltensor}[1]{\bm{K}_{#1}}
+\newcommand{\layertensor}[1]{\bm{F}_{#1}}
+畳み込みカーネルをサイズ$C_{i+1}\times C_i\times M_i \times N_i$のテンソル$\kerneltensor{i}$, 各層の入力をサイズ$C_i\times H_i\times W_i$のテンソル$\layertensor{i}$としたとき，Convolutional NNの関数は
+\begin{equation}
+\begin{split}
+&\CNN(\layertensor{0})=\kerneltensor{n-1}*\activation{\kerneltensor{n-2}*\activation{\cdots \activation{\kerneltensor{0}*\layertensor{0}}\cdots}}\\
+&\layertensor{i}=\activation{\kerneltensor{i-1}*\activation{\cdots \activation{\kerneltensor{0}*\layertensor{0}}\cdots}}
+\end{split}
+\end{equation}
+
+全結合NNのEq.~\eqref{eq:nn output}の行列積が畳み込み積になっただけなので同様に変形することができる．
+\begin{equation}
+\kerneltensor{i}*\activation{\kerneltensor{i-1}*\layertensor{i-1}}
+=\qty(\kerneltensor{i}\odot\activeindex{i-1})*(\kerneltensor{i-1}*\layertensor{i-1})
+\end{equation}
+ただし，ここでの$\activeindex{i-1}$はベクトルではなく$\kerneltensor{i-1}*\layertensor{i-1}$のサイズのテンソルである．
+変形を続けると，
+\newcommand{\effweighttensor}[2]{\prescript{}{#1}{\hat{\bm{K}}}_{#2}}
+\begin{equation}
+\begin{split}
+&\effweighttensor{\catindex{i-1}}{i}=\qty(\kerneltensor{i}\odot\activeindex{i-1})*\cdots*\qty(\kerneltensor{1}\odot\activeindex{0})*\kerneltensor{0}\\
+&\effweighttensor{\catindex{i-1}}{i}*\layertensor{0}=\kerneltensor{i}*\layertensor{i}
+\end{split}
+\end{equation}
+が得られ\footnoteanchor{元論文では2行目の$\layertensor{\cdot}$が$\layervector{\cdot}$になっている．誤植か．}，これまでと同様に等価な決定木を得ることができる．
+
+\subsection{RNNの場合}
+
+Recurrent NNはフィードフォワードに展開できるため，これまでと同様に決定木で表現できる．
+
+以下で定義されるRNNを考える．
+\newcommand{\inputvector}[1]{\bm{x}^{(#1)}}
+\newcommand{\outputvector}[1]{\bm{o}^{(#1)}}
+\newcommand{\hiddenvector}[1]{\bm{h}^{(#1)}}
+\newcommand{\activatevector}[1]{\bm{a}^{(#1)}}
+\begin{description}
+\item[$\inputvector{t}$:] 入力
+\item[$\outputvector{t}$:] 出力
+\item[$\hiddenvector{t}$:] 再帰層
+\item[$W$, $U$, $V$:] 重み行列
+\end{description}
+\begin{equation}
+\begin{split}
+\label{eq:rnn prop}
+&\hiddenvector{t}=\activation{W^\transpose\hiddenvector{t-1}+U^\transpose\inputvector{t}}\\
+&\outputvector{t}=V^\transpose\hiddenvector{t}
+\end{split}
+\end{equation}
+
+\addFigure[0.75\linewidth]{Figure11.png}{RNN：モデル構造}{rnn layers}
+\addFigure[0.6\linewidth]{Figure12.png}{RNN：層の中身}{rnn calc}
+
+活性化関数をスカラーに変換して，
+\begin{equation}
+\begin{split}
+\hiddenvector{t}=\activatevector{t}\odot\qty(W^\transpose \hiddenvector{t-1} + U^\transpose\inputvector{t})
+\end{split}
+\end{equation}
+これを繰り返し適用すると，
+\begin{equation*}
+\begin{split}
+\hiddenvector{t}&=\activatevector{t}\odot\qty(W^\transpose \qty(\activatevector{t}\odot\qty(W^\transpose \hiddenvector{t-2} + U^\transpose\inputvector{t-1})) + U^\transpose\inputvector{t})\\
+&=\activatevector{t}\odot\qty(W^\transpose\qty(\activatevector{t-1}\odot W^\transpose\hiddenvector{t-2}))\\
+&\quad\quad +\activatevector{t}\odot\qty(W^\transpose\qty(\activatevector{t-1}\odot U^\transpose \inputvector{t-1}))
++\activatevector{t}\odot U^\transpose\inputvector{t}\\
+&=\activatevector{t}\odot\qty(\qty(W \odot \activatevector{t-1})^\transpose W^\transpose\hiddenvector{t-2})\\
+&\quad\quad +\activatevector{t}\odot\qty(\qty(W\odot\activatevector{t-1})^\transpose U^\transpose \inputvector{t-1})
++\activatevector{t}\odot U^\transpose\inputvector{t}\\
+&=\cdots\\
+&=\activatevector{t}\odot\qty(W\odot\activatevector{t-1})^\transpose \qty(W\odot\activatevector{t-2})^\transpose \cdots \qty(W\odot\activatevector{1})^\transpose W^\transpose\hiddenvector{0}\\
+&\quad\quad+\activatevector{t}\odot\left\{\qty(W\odot\activatevector{t-1})^\transpose \cdots \qty(W\odot\activatevector{1})^\transpose U^\transpose\inputvector{1} \right.\\
+&\quad\quad\quad\quad+\qty(W\odot\activatevector{t-2})^\transpose \cdots \qty(W\odot\activatevector{1})^\transpose U^\transpose\inputvector{2}\\
+&\quad\quad\quad\quad+\cdots\\
+&\quad\quad\quad\quad+\qty(W\odot\activatevector{2})^\transpose\qty(W\odot\activatevector{1})^\transpose U^\transpose\inputvector{t-2}\\
+&\left.\quad\quad\quad\quad+\qty(W\odot\activatevector{1})^\transpose U^\transpose\inputvector{t-1}
++IU^\transpose\inputvector{t}\right\}
+\end{split}
+\end{equation*}
+すなわち
+\begin{equation}
+\begin{split}
+\hiddenvector{t}&=\activatevector{t}\odot\qty(\coprod_{j=t-1}^1\qty(W\odot\activatevector{j})^\transpose)W^\transpose\hiddenvector{0}\\
+&\quad\quad+\activatevector{t}\odot\sum_{i=1}^t\qty(\coprod_{j=t-1}^i\qty(W\odot\activatevector{j})^\transpose) U^\transpose\inputvector{i}
+\end{split}
+\end{equation}
+\footnoteanchor{元論文ではtransposeの位置が違うが，次元が合わないためおそらく誤植．}．
+ここで$\coprod_{j=t-1}^i$は$t-1$から$i$までの降順総積，要素がない場合は$I$を表す．
+
+総積の部分を$\effweightmatrix{\catindex{i}}{i}$にまとめて，
+\begin{equation}
+\begin{split}
+&\hiddenvector{t}=\activatevector{t}\odot\effweightmatrix{\catindex{1}}{1}^\transpose W^\transpose\hiddenvector{0}
++\activatevector{t}\odot\sum_{i=1}^t\effweightmatrix{\catindex{i}}{i}^\transpose U^\transpose\hiddenvector{i}\\
+&\effweightmatrix{\catindex{i}}{i}=\coprod_{j=t-1}^i\qty(W\odot\activatevector{j})^\transpose
+\end{split}
+\end{equation}
+\footnoteanchor{この前後はtransposeがついたりつかなかったりしている．これで正しいはず．}．
+
+Eq.\eqref{eq:rnn prop}に代入して，
+\begin{equation}
+\outputvector{t}=V^\transpose \activatevector{t}\odot\effweightmatrix{\catindex{1}}{1}^\transpose W^\transpose\hiddenvector{0}
++V^\transpose \activatevector{t}\odot\sum_{i=1}^t\effweightmatrix{\catindex{i}}{i}^\transpose U^\transpose\hiddenvector{i}
+\end{equation}
+\begin{equation}
+\newcommand{\rnneffweightmatrix}[2]{\prescript{}{#1}{\hat{\bm{Z}}}_{#2}}
+\begin{split}
+&\outputvector{t}=\rnneffweightmatrix{\catindex{1}}{1}^\transpose W^\transpose \hiddenvector{0}
++\sum_{i=1}^t\rnneffweightmatrix{\catindex{i}}{i}U^\transpose \inputvector{i}\\
+&\rnneffweightmatrix{\catindex{i}}{i}^\transpose=V^\transpose \activatevector{t}\odot\effweightmatrix{\catindex{i}}{i}^\transpose
+\end{split}
+\end{equation}
+ここで出力は分類ベクトル$\catindex{i}$だけによるから，これまでと同様，決定木に変換できる．
+
+RNNの場合，通常活性化関数は$\tanh$が用いられることに注意．
+$\tanh$は連続的に変化するため有限の大きさの決定木を構築するには区分線形関数で近似する必要がある．
+
+\subsubsection{連続な活性化関数}
+
+これまでに見たように，等価に構成される決定木は，活性化関数の区分数$k$とNNのノード数$d=\sum_i m_i$に対し，$k^d$個の分類を持つ．
+連続な活性化関数の場合は無限の区分を持つ区分線形関数と考えることができるので，無限の幅の決定木が対応することになる．
+実用上は有限の区分線形関数での近似を考えることになる．
+
+連続活性化関数を量子化することでノード数を小さくすることができるかもしれない\footnoteanchor{これ以上特に深掘りはされていない．}．
+
+\section{Toy Modelでの実験}
+
+\subsection{$y=x^2$の回帰}
+
+深さ3，幅2，活性化関数 leaky-ReLU($\alpha=0.3$):
+\[
+\activation{x}=\begin{cases}
+\alpha x & (x\le 0)\\
+x & (x>0)
+\end{cases}
+\]
+（最終層は活性化なし），バイアス項付きの全結合NNで$y=x^2$をfitしたモデルを変換した．
+
+アルゴリズムに従い決定木をかくと\figref{allDT}の通り，$2^4$通りの分類を持つ2分木になる．
+
+\addFigure[\linewidth]{Figure3.png}{$y=x^2$の回帰NNに対応する決定木．$\effweightmatrix{\catindex{i}}{i}\layervector{0}$は展開され$x$について整理されている．（論文\cite{Aytekin2022}Figure2より）}{allDT}
+
+この分岐は冗長であるため，論理的に整理すると\figref{clearDT}のようになり，関数が領域ごとに1次関数の折れ線となっていることがわかる．
+
+\addFigure[0.6\linewidth]{Figure4.png}{\figref{allDT}を整理した決定木．（論文\cite{Aytekin2022}Figure3(a)より）}{clearDT}
+
+この決定木と元のNNの出力をプロットすると\figref{plot}のように一致することがわかる．
+
+\addFigure[0.6\linewidth]{Figure5.png}{NNと変換された決定木の出力をプロットしたもの．\url{https://github.com/CaglarAytekin/NN_DT}のデータを元にプロット．}{plot}
+
+決定木に変換したことで，決定境界が非対称であることからもわかるようにモデルが対称性を学習していないことや，$x<-1.16, x>1$の領域には境界がないためこの領域ではモデルの推定が精度を保たないことなどが明らかになる．
+
+\subsection{半月型の分類}
+
+half-moon dataset（非線形分類のベンチマークによく用いられるデータセット）を深さ3，幅2，活性化関数 leaky-ReLU($\alpha=0.3$)（最終層はsigmoid）の全結合NNで学習したモデルを同様に決定木に変換した．
+入力が2次元なので分岐は2次元平面の直線分割になる．
+
+\figref{2Ddomain}のように決定木に従い16個ほどの領域に分割され，それぞれの領域で0/1に分類されている．
+決定木の利点として，明示的な分類境界を得られる他，非有界な領域は不適切な外挿になっている可能性があること，領域にサンプル点が含まれているかどうかでその領域の予測に信用がおけるかどうかを判断できるといったことが挙げられている．
+
+\addFigure[0.6\linewidth]{Figure6.png}{決定木による分類領域（論文\cite{Aytekin2022}Figure5より）}{2Ddomain}
+
+\subsection{計算量の比較}
+
+決定木表現は記憶容量が大きくなる一方で計算量は削減される．
+表~\ref{tab:comp}は計算回数の期待値．
+
+\begin{table}[hb]
+\begin{tabular}{|c|c|c|c|c|c|c|}
+ \hline
+   & \multicolumn{3}{|c|}{$y=x^2$} & \multicolumn{3}{|c|}{Half-Moon} \\
+ \hline
+   & Param. & Comp. & Mult./Add. & Param. & Comp. & Mult./Add. \\
+ \hline
+  Tree & 14 & 2.6 & 2 & 39 & 4.1 & 8.2 \\
+ \hline
+  NN &  13 & 4 & 16 & 15 & 5 & 25 \\
+ \hline
+\end{tabular}
+\caption{\label{tab:comp}トイモデルにおける計算量と記憶容量の比較．（論文Table1より）}
+\end{table}
+
+\section{講評}
+
+ReLUが傾きの場合分け関数であることを考えればほとんどそのままエンコードしているだけであるが，構成の手続きを与え，実際に決定木表現が得られたのは面白かった．
+
+テーブルデータを学習した際にRandom Forestなどの決定木系の学習モデルとNNで学習してエンコードした決定木を比較したらどのような結果になるか興味が持てる．
+また，ディープモデルで実際に変換を行うのはかなり困難であろうが，Toy modelよりは大きい数十次元ほどのモデルで計算量がどうなるのかも調べてみたい．
+
+\section*{補足：バイアス項の入れ方}
+
+1次関数はアフィン変換として扱えば行列積で書くことができる．
+\[
+y=ax+b
+\]
+\[
+\begin{pmatrix}y \\ 1\end{pmatrix}
+= \begin{pmatrix}a & b \\ 0 & 1\end{pmatrix}\begin{pmatrix}x \\ 1\end{pmatrix}
+\]
+
+ベクトル演算でも同様
+\[
+\bm{y} = A\bm{x}+\bm{b}
+\]
+\[
+\begin{pmatrix}y_1 \\ \vdots \\ y_n \\ 1\end{pmatrix}
+= \begin{pmatrix}a_{11} & \cdots & a_{1n} & b_1 \\
+\vdots & \ddots & \vdots & \vdots\\
+a_{n1} & \cdots & a_{nn} & b_n\\
+0 & \cdots & 0 & 1\end{pmatrix}\begin{pmatrix}x_1 \\ \vdots \\ x_n \\ 1\end{pmatrix}
+\]
+\[
+\begin{pmatrix}
+\bm{y} \\ 1
+\end{pmatrix}
+=
+\begin{pmatrix}
+A & \bm{b} \\ \bm{0}^\transpose & 1
+\end{pmatrix}
+\begin{pmatrix}
+\bm{x} \\ 1
+\end{pmatrix}
+\]
+
+アフィン変換は乗法については線形変換と同様に扱える（加法は閉じない）．
+本文の議論は乗法のみなのでOK．
+
+\begin{thebibliography}{9}
+\bibitem{Aytekin2022} Aytekin, Caglar. “Neural Networks Are Decision Trees.” arXiv, October 25, 2022. \url{https://doi.org/10.48550/arXiv.2210.05189}.
+\bibitem{Jalwana2021} Jalwana, Mohammad A. A. K., Naveed Akhtar, Mohammed Bennamoun, and Ajmal Mian. “CAMERAS: Enhanced Resolution And Sanity Preserving Class Activation Mapping for Image Saliency.” In 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 16322–31, 2021. \url{https://doi.org/10.1109/CVPR46437.2021.01606}.
+\end{thebibliography}
+
+\end{document}
