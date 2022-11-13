@@ -6,7 +6,7 @@
 
 ## コンテンツ
 
-+ [McDannald_et_al_2022_trans](./McDannald_et_al_2022_trans.md)  
++ [McDannald_et_al_2022_transc](./McDannald_et_al_2022_transc.md)  
     機械翻訳用文字起こし
 + [McDannald_et_al_2022_jp](./McDannald_et_al_2022_jp.md)  
     上記の和訳(DeepLの翻訳を元に体裁を整えた程度)

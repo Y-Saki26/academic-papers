@@ -115,10 +115,10 @@ Once the temperature is above the upper confidence bound of TN, the confidence i
 Large temperature steps above TN are then taken.
 
 Once the full data set is collected in the autonomous experiment, ANDiE performs a post-processing hypothesis testing to determine which of the models discussed in Sec. III is the most likely.
-The first-order model is given by 
+The first-order model is given by
 Equation(3)
 where K is the intensity scaling constant and σ is the full-width at half maximum of the Gaussian convolution of the step-function, which is used to describe the width of the transition.
-Finally, the Ising model is given by 
+Finally, the Ising model is given by
 Equation(4)
 where β is the critical exponent.
 Note that Eq. (4) is only valid near TN, which we have used T > 0.5TN to enforce.
@@ -135,7 +135,7 @@ The widths of these likelihood distributions are determined by model and the ins
 The autonomous analysis of the neutron diffraction data shown here was enabled by data pipeline that automatically reduces neutron event data into spectra34 using the Mantid framework.35
 
 The full algorithm was written in Python and implemented in a Jupyter notebook that analyzes the diffraction patterns, selects the next temperature, and communicates with data acquisition, without human intervention.
-The ANDiE notebooks used during the autonomous experiments are available at https://github.com/usnistgov/ANDiE-v1_0.
+The ANDiE notebooks used during the autonomous experiments are available at <https://github.com/usnistgov/ANDiE-v1_0>.
 The BUMPS library36 was used for the MCMC functions with the DREAM sampler.31
 For the thermal inference, a numerical root-seeking algorithm from the sci-kit learn library37 is used to solve for the root of the Weiss equation at each step in the MCMC chain.
 
